@@ -330,8 +330,8 @@ describe("bot/handlers/document", () => {
     });
   });
 
-  describe("unsupported file types", () => {
-    it("shows error for unsupported MIME types", async () => {
+  describe("generic file support", () => {
+    it("downloads and sends generic files when model/agent supports them", async () => {
       const { ctx, replyMock } = createDocumentContext({
         document: {
           file_id: "zip-file-id",
@@ -340,12 +340,44 @@ describe("bot/handlers/document", () => {
           mime_type: "application/zip",
           file_size: 5000,
         },
+        caption: "Extract files",
       });
       const { deps, processPromptMock, downloadMock } = createDocumentDeps();
 
       await handleDocumentMessage(ctx, deps);
 
-      expect(replyMock).toHaveBeenCalledWith(t("bot.file_type_unsupported"));
+      expect(replyMock).toHaveBeenCalledWith(t("bot.file_downloading"));
+      expect(downloadMock).toHaveBeenCalled();
+      expect(processPromptMock).toHaveBeenCalledWith(
+        ctx,
+        "Extract files",
+        deps,
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "file",
+            mime: "application/zip",
+            filename: "archive.zip",
+            url: expect.stringMatching(/^data:application\/zip;base64,/),
+          }),
+        ]),
+      );
+    });
+
+    it("rejects generic file larger than limit", async () => {
+      const { ctx, replyMock } = createDocumentContext({
+        document: {
+          file_id: "zip-file-id",
+          file_unique_id: "zip-unique-id",
+          file_name: "large.zip",
+          mime_type: "application/zip",
+          file_size: 200 * 1024, // 200KB
+        },
+      });
+      const { deps, processPromptMock, downloadMock } = createDocumentDeps();
+
+      await handleDocumentMessage(ctx, deps);
+
+      expect(replyMock).toHaveBeenCalledWith(t("bot.text_file_too_large", { maxSizeKb: "100" }));
       expect(downloadMock).not.toHaveBeenCalled();
       expect(processPromptMock).not.toHaveBeenCalled();
     });

@@ -294,7 +294,19 @@ export class MediaGroupAttachmentHandler {
         continue;
       }
 
-      return { reason: `unsupported_document_mime:${mimeType || "unknown"}` };
+      if (!isFileSizeAllowed(document.file_size, config.files.maxFileSizeKb)) {
+        return { reason: "text_file_too_large" };
+      }
+
+      validItems.push({
+        kind: "file",
+        ctx: item.ctx,
+        messageId: item.messageId,
+        fileId: document.file_id,
+        mime: mimeType || "application/octet-stream",
+        filename,
+      });
+      continue;
     }
 
     if (needsImageSupport || needsPdfSupport) {

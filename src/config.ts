@@ -168,6 +168,7 @@ export const config = {
   },
   files: {
     maxFileSizeKb: parseInt(getEnvVar("CODE_FILE_MAX_SIZE_KB", false) || "100", 10),
+    tempDir: getEnvVar("BOT_TEMP_DIR", false) || "",
   },
   open: {
     browserRoots: getEnvVar("OPEN_BROWSER_ROOTS", false),

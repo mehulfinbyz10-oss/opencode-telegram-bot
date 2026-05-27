@@ -148,8 +148,34 @@ export async function handleDocumentMessage(
       return;
     }
 
-    logger.warn(`[Document] Unsupported document MIME type: ${mimeType}, filename=${filename}`);
-    await ctx.reply(t("bot.file_type_unsupported"));
+    // Generic file: forward as-is and let the agent decide how to handle it
+    if (!isFileSizeAllowed(doc.file_size, config.files.maxFileSizeKb)) {
+      logger.warn(
+        `[Document] File too large: ${filename} (${doc.file_size} bytes > ${config.files.maxFileSizeKb}KB)`,
+      );
+      await ctx.reply(
+        t("bot.text_file_too_large", { maxSizeKb: String(config.files.maxFileSizeKb) }),
+      );
+      return;
+    }
+
+    await ctx.reply(t("bot.file_downloading"));
+    const downloadedFile = await downloadFile(ctx.api, doc.file_id);
+
+    const dataUri = toDataUri(downloadedFile.buffer, mimeType || "application/octet-stream");
+
+    const filePart: FilePartInput = {
+      type: "file",
+      mime: mimeType || "application/octet-stream",
+      filename: filename,
+      url: dataUri,
+    };
+
+    logger.info(
+      `[Document] Sending file (${downloadedFile.buffer.length} bytes, ${filename}, ${mimeType || "unknown"}) with prompt`,
+    );
+
+    await processPrompt(ctx, caption, deps, [filePart]);
   } catch (err) {
     logger.error("[Document] Error handling document message:", err);
     await ctx.reply(t("bot.file_download_error"));
